@@ -1,0 +1,261 @@
+---
+title: yarn classic은 workspace에서 어떻게 디펜던시를 관리할까
+date: 2023-12-09
+tags:
+  - package-manager
+  - 모노레포
+  - yarn
+draft: false
+summary: yarn classic으로 workspace 만들고, 디펜던시 관리 방법 알아보기
+authors:
+---
+
+우리가 알고 있는 npm, yarn, pnpm과 같은 패키지 매니저에는 `워크스페이스`라는 기능이 있다. 워크스페이스를 설정하면, 모노레포를 구성할 수 있다. 모노레포는 여러 프로젝트를 하나의 레포지토리에서 관리하는 방식이다. 우리가 잘 아는 [리액트 프로젝트도 모노레포로 관리](https://github.com/facebook/react/tree/main/packages)된다.
+
+이번 글에서는 yarn의 1.x 버전에 해당하는 yarn classic으로 워크스페이스를 만들고, 이 패키지 매니저가 디펜던시를 관리하는 방법을 알아본다.
+
+# 워크스페이스 설정하기
+
+예시로 들 모노레포의 폴더 구조는 최상단에 root-repo가 있고 apps 폴더 하위에 세 개의 패키지가 있는 구조이다. 앞으로 최상단에 있는 root-repo를 `워크스페이스 루트`라고 부를 것이다. 이 구조에서 yarn으로 어떻게 모노레포를 설정하는지 알아보자.
+
+```
+| root-root/
+| ---- package.json
+| ---- apps/
+| -------- admin/
+| ------------ package.json
+| -------- api-server/
+| ------------ package.json
+| -------- extension/
+| ------------ package.json
+```
+
+우선 워크스페이스 루트에 package.json 파일을 만든다. 그 파일에 `workspaces` 와 `private` 필드를 추가해야 한다. `workspaces`에는 워크스페이스인 폴더를 명시하는데, 일일이 명시할 수도 있고 glob 패턴을 사용하여 명시할 수도 있다. 여기서는 `apps/*`로 명시해두었는데, 이는 apps 폴더 바로 하위에 있는 폴더가 워크스페이스라는 의미이다. `private`은 true 로 설정한다. 워크스페이스 루트는 패키지로서의 역할을 하지 않기에, 저장소에 퍼블리싱되는 것을 막아야 한다. 그렇게 하려면, `private`은 true로 설정해야 한다.
+
+- package.json
+
+```json
+{
+  "name": "yarn-repo",
+  "private": true,
+  "workspaces": ["apps/*"]
+}
+```
+
+이제 워크스페이스 루트에서 `yarn install`을 하면, 워크스페이스 루트와 각 워크스페이스 폴더 안에 node_modules 폴더가 생긴다. 그리고 워크스페이스 루트에만 `yarn.lock` 파일이 생긴다. 패키지 매니저가 자동으로 관리해주는 lock 파일은 패키지들의 버전이나, 패키지가 의존하고 있는 디펜던시 등을 명시한 메타데이터가 적혀있다. lock 파일이 있기에 설치할 때 마다 패키지들의 버전은 동일하게 유지될 수 있다.
+
+- 모노레포 폴더 구조
+
+```
+| root-repo/
+| ---- package.json
+| ---- node_modules
+| ---- yarn.lock
+| ---- apps/
+| -------- admin/
+| ------------ package.json
+| ------------ node_modules
+| -------- api-server/
+| ------------ package.json
+| ------------ node_modules
+| -------- extension/
+| ------------ package.json
+| ------------ node_modules
+```
+
+# yarn classic의 패키지 관리 방식
+
+npm, yarn, pnpm과 같은 패키지 매니저들은 디펜던시가 효율적으로 설치될 수 있도록 알아서 관리해준다. 셋 다 `호이스팅` 기법을 사용하여, 디펜던시들이 중복으로 설치되지 않게 해준다. 각 패키지 매니저마다 그 방식엔 차이가 있다. npm v3와 yarn classic은 **node_modules 안에 모든 패키지를 같은 레벨로 설치**한다. 흔히 *평평(flat)한 node_modules 구조*라고 한다.
+
+## 평평한 node_modules 구조
+
+아래 보이는 그림은 하나의 프로젝트 안에서의 호이스팅 전후에 따른 디펜던시 트리를 보여준다. 호이스팅 이전의 디펜던시 트리에서 `A@1.0`, `B@1.0`, `B@2.0`은 서로 다른 레벨에 있다. 호이스팅 이후에는 `A@1.0`과 `B@1.0`이 node_modules의 바로 하위에 같은 레벨로 위치하게 된다. 이렇게 호이스팅되어 같은 버전의 패키지는 중복 없이 설치된다.
+
+![](Sheep-Screenshot%202023-07-24%2007.14.59.png)
+
+위에서 yarn classic은 모든 패키지를 같은 레벨로 설치한다고 하였으나, 예외는 있다. 바로 호환될 수 없는 패키지의 경우이다. 예시에서 `B@2.0`은 같은 최상위에 있는 `B@1.0`과 같은 패키지이나 버전은 호환될 수 없다. 따라서 `B@2.0`은 `D@1.0` 패키지의 node_modules 폴더 안에 위치하게 된다.
+
+이렇게 호환될 수 없는 디펜던시를 제외하고 모든 디펜던시를 최상위로 끌어올리는 방식은 모노레포 구조에서도 비슷하다. 각 패키지에서 의존하고 있는 디펜던시들이 워크스페이스 루트의 node_modules로 끌어올려진다. `B@2.0`은 최상위에 있는 `B@1.0`과는 버전이 달라서 호환될 수 없기에, `package-1`의 node_modules에 위치하게 된다. 그림에서 `package-1`과 `package-2` 또한 워크스페이스 루트에서 심볼릭 링크로 연결된 것을 알 수 있다.
+![](Sheep-Screenshot%202023-07-24%2007.44.06.png)
+
+# yarn classic 모노레포에서 디펜던시 관리 방식
+
+지금까지는 yarn classic으로 모노레포를 생성하였을 때의 디펜던시 관리 방식에 대해서 알아보았다. 이제는 `admin`, `api-server`, `extension`이라는 패키지를 갖고 있는 모노레포 구조에서 아래 3가지 케이스에 해당하는 디펜던시를 어떻게 관리하는지 알아보자.
+
+1. 한 패키지에서만 사용되는 디펜던시
+2. 여러 패키지에서 사용되고, 호환될 수 있는 디펜던시
+3. 여러 패키지에서 사용되지만, 호환될 수 없는 디펜던시
+
+## 1. 한 패키지에서만 사용되는 디펜던시의 경우
+
+`admin`, `api-server`, `extension` 패키지 중에서 `api-server`에서만 `jest`를 디펜던시로 갖고 있다고 하자. 그러면, `jest`는 최상단의 워크스페이스 루트의 node_modules로 끌어올려져서 설치된다.
+
+```
+| root-repo/
+| ---- package.json
+| ---- node_modules
+| ------- jest # 최상단에 설치됨
+| ---- yarn.lock
+| ---- apps/
+| -------- admin/
+| ------------ package.json
+| ------------ node_modules
+| -------- api-server/
+| ------------ package.json
+| ------------ node_modules
+| -------- extension/
+| ------------ package.json
+| ------------ node_modules
+```
+
+## 2. 여러 패키지에서 사용되는 디펜던시의 경우
+
+이번에는 복수의 패키지에서 호환될 수 있는 디펜던시가 설치된 경우에, 어떻게 디펜던시가 설치되는지 알아보자.
+
+아래 packge.json을 보면, `admin`과 `extension` 모두 `react`를 사용하고 있고, 리액트의 `^18.2.0`과 `^18.0.0`을 사용함을 알 수 있다.
+
+- admin의 package.json
+
+```json
+{
+  "name": "admin",
+  "dependencies": {
+    "react": "^18.2.0"
+  }
+}
+```
+
+- extension의 package.json
+
+```json
+{
+  "name": "extension",
+  "dependencies": {
+    "react": "^18.0.0"
+  }
+}
+```
+
+시맨틱 버저닝에서 버전은 `MAJOR.MINOR.PATCH`로 불린다. `^18.0.0`처럼 버전 앞에 붙은 캐럿(`^`)은 해당 메이저 버전의 마이너와 패치 버전까지 하위호환성이 보장된다는 의미이다. 설치 시점에서 리액트 18의 가장 최신 버전이 `18.2.0`일 경우, `^18.2.0`와 `^18.0.0`은 `18.2.0` 버전과 호환될 수 있다. 만약 리액트 18의 가장 최신 버전이 `18.3.1`이라면, 그 버전이 설치 될 것이다.
+
+시맨틱 버저닝에 따라 최상단의 node_modules에 설치되는 리액트는 `react@18.2.0`이 된다. 그리고 이 정보는 yarn.lock에서도 확인할 수 있다.
+
+- yarn.lock
+
+```lock
+react@^18.0.0, react@^18.2.0:
+  version "18.2.0"
+  resolved "https://registry.yarnpkg.com/react/-/react-18.2.0.tgz#555bd98592883255fa00de14f1151a917b5d77d5"
+  integrity sha512-/3IjMdb2L9QbBdWiW5e3P2/npwMBaU9mHCSCUzNln0ZCYbcfTsGbTJrU/kGemdH2IWmB2ioZ+zkxtmq6g09fGQ==
+  dependencies:
+    loose-envify "^1.1.0"
+```
+
+- 폴더 구조
+
+```
+| root-repo/
+| ---- package.json
+| ---- node_modules
+| ------- react # 최상단에 v18.2.0이 설치됨
+| ---- yarn.lock
+| ---- apps/
+| -------- admin/
+| ------------ package.json
+| ------------ node_modules
+| -------- api-server/
+| ------------ package.json
+| ------------ node_modules
+| -------- extension/
+| ------------ package.json
+| ------------ node_modules
+```
+
+## 3. 여러 패키지에서 사용되지만, 호환될 수 없는 디펜던시
+
+마지막으로 2개 이상의 패키지에서 공통으로 사용하고 있으나, 호환될 수 없는 디펜던시가 있는 경우엔 어떻게 설치되는지 확인해보자.
+
+`typescript`는 세 패키지에서 모두 사용되고 있으나, 명시하고 있는 버전이 다르다.
+
+```
+- admin: ^5.0.2
+- api-server: ^4.2.3
+- extension: ^4.6.3
+```
+
+api-server와 extension은 타입스크립트 4 버전 중 가장 최신 버전인 `4.9.5` 버전으로 호환될 수 있다. 그래서 `typescript@4.9.5`은 워크스페이스 루트에 있는 node_modules에 설치된다. 반면 admin은 `^5.0.2` 버전을 사용하는데, `4.9.5`과는 메이저 버전이 다르기 때문에 호환될 수 없다. 이 경우엔 admin 패키지 하위에 있는 node_modules에 typescript 5 버전 중에서 설치 시점에서 가장 최신 버전인 `5.1.6` 버전이 설치된다.
+
+- yarn.lock
+
+```lock
+typescript@^4.2.3, typescript@^4.6.3:
+  version "4.9.5"
+  ...
+
+typescript@^5.0.2:
+  version "5.1.6"
+  ...
+```
+
+- 폴더 구조
+
+```
+| root-repo/
+| ---- package.json
+| ---- node_modules
+| ------- typescript # 최상단에 v4.9.5가 설치됨
+| ---- yarn.lock
+| ---- apps/
+| -------- admin/
+| ------------ package.json
+| ------------ node_modules
+| --------------- typescript # v5.1.6이 설치됨
+| -------- api-server/
+| ------------ package.json
+| ------------ node_modules
+| -------- extension/
+| ------------ package.json
+| ------------ node_modules
+```
+
+# 유령 의존성
+
+yarn은 의존성 중복 설치를 막기 위해 호이스팅 기법을 사용하지만, 평평한 node_modules 구조로 인해 한 가지 문제점이 생긴다. 바로 `유령 의존성` 문제이다. 유령 의존성이란 package.json에 명시하지 않은 패키지를 불러올 수 있는 것을 말한다.
+
+예를 들어, api-server 프로젝트는 `rxjs`를 package.json에 명시하였으나, admin 프로젝트에서는 rxjs를 명시하지 않았다.
+
+- api-server/package.json
+
+```json
+{
+  "name": "api-server",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "dependencies": {
+    "rxjs": "^7.8.1",
+    "typescript": "^4.2.3"
+  }
+}
+```
+
+하지만 admin 프로젝트 내에서 `rxjs` 패키지를 불러오더라도, 어떠한 에러 없이 정상적으로 실행된다.
+
+![](Sheep-Screenshot%202023-07-16%2000.09.40.png)
+
+반면 pnpm과 같이 유령 의존성 문제를 해결한 패키지 매니저를 사용하면, package.json에 명시되지 않은 `rxjs`를 불러올 때 에러가 발생한다.
+
+![](Sheep-Screenshot%202023-07-16%2000.10.57.png)
+![](Sheep-Screenshot%202023-07-16%2000.11.33.png)
+
+만약 api-server 프로젝트에서 rxjs 패키지를 삭제한다면, rxjs를 유령 의존성으로 사용한 admin 프로젝트에서 갑자기 에러가 발생하게 된다. 이 문제를 해결하기 위해, pnpm은 평평하지 않은 node_modules 구조로 관리하고, yarn berry는 node_modules 폴더 자체를 만들지 않고 `.pnp.cjs` 파일에 의존성 정보를 관리한다.
+
+# 참고 자료
+
+- https://classic.yarnpkg.com/en/docs/workspaces
+- https://classic.yarnpkg.com/blog/2017/08/02/introducing-workspaces
+- https://www.kochan.io/nodejs/why-should-we-use-pnpm.html
+- https://classic.yarnpkg.com/blog/2018/02/15/nohoist/
+- https://blog.logrocket.com/javascript-package-managers-compared/
+- https://medium.com/@eitanmayer/hard-vs-symbolic-links-f0584a5d1db5
+- https://rushjs.io/pages/advanced/phantom_deps/
