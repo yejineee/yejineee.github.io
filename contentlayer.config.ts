@@ -9,7 +9,7 @@ import remarkMath from 'remark-math'
 import {
   remarkExtractFrontmatter,
   remarkCodeTitles,
-  remarkImgToJsx,
+  // remarkImgToJsx,
   extractTocHeadings,
 } from 'pliny/mdx-plugins/index.js'
 // Rehype packages
@@ -21,6 +21,7 @@ import rehypePrismPlus from 'rehype-prism-plus'
 import rehypePresetMinify from 'rehype-preset-minify'
 import siteMetadata from './data/siteMetadata'
 import { allCoreContent, sortPosts } from 'pliny/utils/contentlayer.js'
+import { remarkImgToJsx } from './utils/remarkImgToJsx'
 
 const root = process.cwd()
 const isProduction = process.env.NODE_ENV === 'production'
