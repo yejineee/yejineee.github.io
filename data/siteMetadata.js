@@ -5,7 +5,7 @@ const siteMetadata = {
   headerTitle: 'yejineee',
   description: '계속해서 배우고, 나눠주는 사람이 되기를',
   language: 'ko',
-  theme: 'system', // system, dark or light
+  theme: 'light', // system, dark or light
   siteUrl: 'https://yejineee.vercel.app',
   siteRepo: 'https://github.com/yejineee/yejineee.github.io',
   siteLogo: '/static/images/logo.png',
@@ -33,9 +33,9 @@ const siteMetadata = {
     // posthogAnalytics: {
     //   posthogProjectApiKey: '', // e.g. 123e4567-e89b-12d3-a456-426614174000
     // },
-    // googleAnalytics: {
-    //   googleAnalyticsId: '', // e.g. G-XXXXXXX
-    // },
+    googleAnalytics: {
+      googleAnalyticsId: 'G-EQR017FZ59', // e.g. G-XXXXXXX
+    },
   },
   newsletter: {
     // supports mailchimp, buttondown, convertkit, klaviyo, revue, emailoctopus
