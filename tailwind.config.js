@@ -72,7 +72,7 @@ module.exports = {
             },
             'code:not(.code-highlight)': {
               color: theme('colors.indigo.400'),
-              backgroundColor: theme('colors.gray.800'),
+              backgroundColor: theme('colors.gray.900'),
             },
           },
         },
