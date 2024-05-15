@@ -11,7 +11,7 @@ const siteMetadata = {
   siteLogo: '/static/images/logo.png',
   socialBanner: '/static/images/twitter-card.png',
   mastodon: 'https://mastodon.social/@mastodonuser',
-  email: 'yejineee@gmail.com',
+  email: 'yygeniee@gmail.com',
   github: 'https://github.com/yejineee',
   twitter: 'https://twitter.com/Twitter',
   facebook: 'https://facebook.com',
