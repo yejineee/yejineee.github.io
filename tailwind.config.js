@@ -21,18 +21,17 @@ module.exports = {
         14: '3.5rem',
       },
       colors: {
-        primary: colors.pink,
+        primary: colors.indigo,
         gray: colors.gray,
       },
       typography: ({ theme }) => ({
         DEFAULT: {
           css: {
             a: {
-              color: theme('colors.primary.500'),
+              color: theme('colors.gray.600'),
               '&:hover': {
-                color: `${theme('colors.primary.600')}`,
+                color: `${theme('colors.primary.500')}`,
               },
-              code: { color: theme('colors.primary.400') },
             },
             'h1,h2': {
               fontWeight: '700',
@@ -41,15 +40,28 @@ module.exports = {
             h3: {
               fontWeight: '600',
             },
-            code: {
+            'code:not(.code-highlight)': {
               color: theme('colors.indigo.500'),
+              backgroundColor: theme('colors.gray.100'),
+              paddingLeft: '4px',
+              paddingRight: '4px',
+              paddingTop: '2px',
+              paddingBottom: '2px',
+              borderRadius: '0.25rem',
+              wordBreak: 'break-word',
+            },
+            'code::before': {
+              content: 'none',
+            },
+            'code::after': {
+              content: 'none',
             },
           },
         },
         invert: {
           css: {
             a: {
-              color: theme('colors.primary.500'),
+              color: theme('colors.gray.300'),
               '&:hover': {
                 color: `${theme('colors.primary.400')}`,
               },
@@ -57,6 +69,10 @@ module.exports = {
             },
             'h1,h2,h3,h4,h5,h6': {
               color: theme('colors.gray.100'),
+            },
+            'code:not(.code-highlight)': {
+              color: theme('colors.indigo.400'),
+              backgroundColor: theme('colors.gray.800'),
             },
           },
         },
